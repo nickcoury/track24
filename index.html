@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1f3a">
+<title>Twenty-Four</title>
+<meta name="description" content="A 24 hour track ultramarathon. In real time. In VR or on your phone.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b1f3a'/><ellipse cx='50' cy='50' rx='38' ry='24' fill='none' stroke='%23b4442e' stroke-width='10'/><text x='50' y='60' font-size='30' font-family='Arial' font-weight='bold' fill='%23ffd23f' text-anchor='middle'>24</text></svg>">
+<style>
+  :root { --navy: #0b1f3a; --gold: #ffd23f; --red: #d7263d; --ink: #e8eef6; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #stage canvas { display: block; }
+  .hidden { display: none !important; }
+
+  #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px; display: flex; gap: 8px; pointer-events: none; }
+  #hud canvas { width: 150px; height: 150px; display: block; }
+  #menuBtn { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; background: rgba(6,12,22,.7); color: #fff;
+    border: 1px solid rgba(255,255,255,.2); border-radius: 10px; padding: 8px 12px; font-size: 15px; }
+
+  #msg { position: fixed; top: 26%; left: 50%; transform: translateX(-50%); max-width: min(92vw, 640px); text-align: center;
+    background: rgba(6,12,22,.82); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 20px;
+    opacity: 0; transition: opacity .25s; pointer-events: none; }
+  #msg.show { opacity: 1; }
+  #msg.ok { color: #3ddc84; } #msg.warn { color: #ffb020; } #msg.bad { color: #ff6b6b; } #msg.info { color: var(--gold); }
+
+  #pads { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: space-between; padding: 0 14px; pointer-events: none; }
+  .pad { pointer-events: auto; width: min(36vw, 170px); height: min(36vw, 170px); border-radius: 50%; border: 3px solid rgba(255,255,255,.55);
+    background: rgba(6,12,22,.45); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
+  .pad b { font-size: 34px; }
+  .pad.hit { background: rgba(255,210,63,.55); transform: scale(.96); }
+  #getup { position: fixed; left: 50%; bottom: 30%; transform: translateX(-50%); font-size: 26px; font-weight: 800; padding: 18px 34px;
+    border-radius: 16px; border: 0; background: var(--red); color: #fff; }
+
+  #tray { position: fixed; left: 0; right: 0; bottom: calc(max(14px, env(safe-area-inset-bottom)) + min(36vw, 170px) + 12px);
+    display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; scrollbar-width: none; }
+  #tray button { flex: 0 0 auto; min-width: 76px; border: 0; border-radius: 12px; background: rgba(255,255,255,.92); color: #111;
+    font-size: 12px; font-weight: 700; padding: 6px 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #tray button span { font-size: 28px; }
+  #tray button:disabled { opacity: .3; }
+
+  #start, #results { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    background: radial-gradient(ellipse at 50% 30%, rgba(11,31,58,.96), rgba(0,0,0,.97)); padding: 24px 16px; z-index: 10; text-align: center; overflow-y: auto; }
+  #start h1 { font-size: clamp(40px, 11vw, 84px); margin: 0; letter-spacing: .06em; color: #fff; line-height: 1; }
+  #start h1 em { color: var(--gold); font-style: normal; }
+  .sub { color: #9fb3c8; letter-spacing: .25em; font-size: 13px; text-transform: uppercase; }
+  .rules { max-width: 560px; text-align: left; font-size: 15px; line-height: 1.5; color: #cfd8e3; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 12px 16px; }
+  .rules b { color: #fff; }
+  .rules ul { margin: 6px 0; padding-left: 20px; }
+  button.primary, #vrBtn, #results button { font-size: 19px; font-weight: 800; padding: 14px 28px; border-radius: 14px; border: 0; cursor: pointer;
+    background: var(--gold); color: #111; min-width: 240px; }
+  #vrBtn { background: #fff; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .ghost { background: transparent; color: #cfd8e3; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 8px 14px; font-size: 14px; }
+  .note { color: var(--gold); font-size: 14px; min-height: 1em; }
+  #results h2 { margin: 0; color: var(--gold); letter-spacing: .2em; }
+  #results .big { font-size: 48px; font-weight: 800; }
+  #results .dim { color: #9fb3c8; font-size: 14px; }
+
+  @media (max-width: 600px) {
+    #hud canvas { width: 108px; height: 108px; }
+    #msg { font-size: 16px; top: 20%; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hud"><div id="watch"></div><div id="bodyp"></div></div>
+<button id="menuBtn">Menu</button>
+<div id="msg"></div>
+<div id="tray" class="hidden"></div>
+<div id="pads" class="hidden">
+  <div class="pad" id="padL"><b>L</b>left foot</div>
+  <div class="pad" id="padR"><b>R</b>right foot</div>
+</div>
+<button id="getup" class="hidden">GET UP</button>
+
+<div id="start">
+  <div class="sub">The 24 Hour Track Championship</div>
+  <h1>TWENTY<em>-</em>FOUR</h1>
+  <div class="sub">400 meters · 24 hours · real time</div>
+  <div class="rules">
+    <b>The race clock is real and never stops.</b> Close the game and you're sitting in a camp chair while the clock runs.
+    <ul>
+      <li><b>Run:</b> in VR, swing your arms like you're running. On a phone, tap <b>L</b> and <b>R</b> in rhythm (keyboard: F / J). Faster rhythm, faster pace.</li>
+      <li><b>Don't stop dead.</b> Stop moving your legs at speed and you'll trip. Slow down gradually.</li>
+      <li><b>Eat ~100 kcal per mile.</b> Drink. Salt. The aid table is on your left just before the finish line. In VR, grip an item and lift it to your mouth. On a phone, tap it as you pass. Slow down or you'll fumble it.</li>
+      <li>Wrist watch (left) shows your race. Body panel (right) shows energy, hydration, stomach, legs, salt and alertness.</li>
+    </ul>
+    Good: 100 miles. Heroic: 200.
+  </div>
+  <div class="row">
+    <button class="primary" id="startBtn">Start the race</button>
+    <div id="vrSlot" class="hidden"></div>
+  </div>
+  <div class="note" id="resumeNote"></div>
+  <div class="note" id="bestNote"></div>
+  <div class="row">
+    <button class="ghost" id="newBtn">New race</button>
+    <button class="ghost" id="muteBtn">Sound: on</button>
+  </div>
+</div>
+<div id="results" class="hidden"></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
