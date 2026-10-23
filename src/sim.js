@@ -7,7 +7,7 @@ export const RACE_SECONDS = 24 * 3600;
 export const RACE_START_HOUR = 9; // gun goes off at 9:00 AM
 
 export const ENERGY_MAX = 2000;      // kcal of readily available fuel
-export const STOMACH_CAP = 900;      // "load" units (bulk + 0.6 * ml)
+export const STOMACH_CAP = 900;      // "load" units (bulk + 0.4 * ml)
 export const KCAL_PER_METER = 100 / MILE; // 100 kcal per mile
 
 // Aid station menu. bulk = how much room it takes in the stomach.
@@ -66,7 +66,7 @@ export function newRunner() {
 }
 
 export function stomachLoad(r) {
-  return r.stomachBulk + 0.6 * r.stomachMl;
+  return r.stomachBulk + 0.4 * r.stomachMl;
 }
 
 export function drowsiness(r) {
@@ -187,7 +187,9 @@ export function step(r, dt, desiredSpeed, rng = Math.random) {
   const sweatMl = (0.2 + 0.18 * r.speed) * heat * 1000 / 3600 * dt;
   r.water += sweatMl;
   r.sodium += sweatMl * 0.9;
-  const drink = Math.min(r.stomachMl, 1250 / 3600 * dt);
+  // A dehydrated body pulls water in faster; hard running slows the gut a little.
+  const thirst = clamp(r.water / 3000, 0, 1);
+  const drink = Math.min(r.stomachMl, (1500 + 700 * thirst) / 3600 * dt * (1 - 0.2 * intensity));
   r.stomachMl -= drink;
   r.water -= drink;
   if (r.water < 0) r.water = Math.min(0, r.water + 350 / 3600 * dt); // kidneys
